@@ -1,0 +1,445 @@
+\documentclass[12pt]{article}
+
+\usepackage{amsmath}
+\usepackage{amscd}
+\usepackage[tableposition=top]{caption}
+\usepackage{ifthen}
+\usepackage[utf8]{inputenc}
+
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage{graphicx,booktabs,microtype}
+\usepackage{multicol,multirow}
+\usepackage{natbib,tipa}
+\usepackage[usenames, dvipsnames]{xcolor}
+\usepackage{enumerate}
+
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+\setkeys{Gin}{width=0.55\textwidth}
+
+\title{Frequency and prototypicality determine variation in the Hungarian verbal {\sc 1sg.indef}}
+\author{P\'eter R\'acz \\ \small Department of Anthropology and Archaeology, University of Bristol}
+\date{}
+\maketitle
+
+\begin{abstract}
+I provide a synchronic account of the variation between the {\em marked} and {\em unmarked} forms of the {\sc 1sg.indef} of Hungarian (-ik) verbs; verbs that end in (-ik) in the {\sc 3sg.indef}. I use a generalised mixed-effects regression analysis to explore how these forms vary in an extensive sample of the language, the Hungarian Webcorpus. I find that verbs' preference for the marked/unmarked form is determined by their lemma frequency and their prototypicality as members of the (-ik) class. These results are consistent with a morphological levelling account of variation in Hungarian verbal morphology, in which verbs migrate away from the minority (-ik) class and into the majority regular class. This suggests a picture of variation in Hungarian verbs that is shaped by lexical organisation, morphophonology, and social dynamics.
+\end{abstract}
+
+<<header,echo=FALSE>>=
+library(dplyr)
+library(stringr)
+library(reshape2)
+library(xtable)
+library(lme4)
+library(ggplot2)
+library(effects)
+library(MuMIn)
+
+setwd("/Users/pracz/Work/Bristol/ikes-igek-repo/")
+d <- read.delim('ikes_pairs_dataset.csv', sep=',') # _dataset_generator
+
+d <- d %>% mutate_if(is.logical,as.factor)
+@
+
+%  analysis:VERB word~'.*ik$'
+% 3887 types and 2549651 tokens found
+% analysis:VERB<PERS<1>> lemma~'.*ik$'
+% 3121 types and 164627 tokens found
+% my data (at least one -m and one -k form, at least four indef forms in total)
+% 825 types and 142679
+
+\section{Variation in the {\sc 1sg.indef} of Hungarian (-ik) verbs}
+
+Classic Literary Hungarian distinguishes two verb classes, regular verbs and (-ik) verbs. The distinction was, originally, at least partially {\em semantic}, between {\em active} and {\em medial} verbs. The semantic grounding survives in a handful of forms, such as \textipa{[t\o{}r]} `break-{\sc tr.3sg.indef}' and \textipa{[t\o{}r-{ik}]} `break-{\sc intr.3sg.indef}'. At the same time, semantic category boundaries have been porous and it is unclear whether the system, partly re-introduced during the language reform period of the 19$^{th}$ century, has ever existed in its entirety in spoken language \citep{kiss2003magyar}.
+
+In any case, the Classic Literary Hungarian distinction between regular and (-ik) verbs is manifest at several points in the inflectional paradigm, as shown by Table \ref{iktable}. (Transcriptions do not mark non-lexical phonological processes to allow for better comparison across variants. Glosses follow the Leipzig Glossing Rules, see \citealt{bickel2008leipzig}.)
+
+% replace example: 
+% - not sib-final
+% - not nyit-nyilik / nyujt-nyulik etc (nyiss/nyujcs, stb, bad): fésül / fésülködik !
+
+
+\begin{table}[htp]
+\begin{center}
+\begin{tabular}{lllllll}
+\toprule
+&\multicolumn{3}{c}{regular verb} & \multicolumn{3}{c}{(-ik) verb}\\
+&\sc 1sg.indef  &\sc 2sg.indef &\sc 3sg.indef &\sc 1sg.indef & \sc 2sg.indef & \sc 3sg.indef \\
+\midrule
+{\sc ind} & \textipa{ fe:syl\o{}k } & \textipa{  fe:syls } & \textipa{ fe:syl } & \colorbox{gray}{ \textipa{ fe:sylk\o{}d\o{}m} }& \textipa{ fe:sylk\o{}d\o{}l } & \colorbox{gray}{\textipa{ fe:sylk\o{}dik} }\\
+{\sc imp} & \textipa{ fe:syljEk } & \textipa{  fe:sylj } & \textipa{ fe:sylj\o{}n } & \textipa{ fe:sylk\o{}djEm } & \textipa{ fe:sylk\o{}djel } & \textipa{ fe:sylk\o{}djek }\\
+{\sc cond} & \textipa{  fe:sylnek } & \textipa{ fe:sylnel } & \textipa{ fe:sylnE } & \textipa{ fe:sylk\o{}dnem } & \textipa{ fe:sylk\o{}dnel } & \textipa{ fe:sylk\o{}dnek }\\
+\bottomrule
+\end{tabular}
+\end{center}
+\caption{Differences between the verb classes in Classic Literary Hungarian shown by regular verb \textipa{[fe:Syl]} `comb{\sc -3sg.indef}' and (-ik) verb \textipa{[fe:Sylk\o{}dik]} `comb{\sc -3sg.refl.indef}'}
+\label{iktable}
+\end{table}
+
+Educated Colloquial Hungarian \citep{siptar2000phonology} only maintains two of these paradigm distinctions, indicated in \colorbox{gray}{grey} in the table above. These are the {\sc 3sg.indef} indicative and the {\sc 1sg.indef} indicative. The (-ik) class has an (-ik) suffix instead of (-$\emptyset{}$) in the former and (-m) instead of (-k) in the latter. Otherwise, the regular and the (-ik) class are identical. Since (-m) is also the {\sc 1sg.def} ending, (-ik) stems neutralise the contrast in {\em definiteness} in this position.
+
+This is shown in (1-2): \textipa{[tud]} `know{\sc.3sg.tr}' is a regular verb. It shows a contrast between the indefinite (1a) and the definite (1b). On the other hand, \textipa{[Esik]} `eat{\sc-3sg.intr}' is an (-ik) verb, which uses (-m) in both cases (2a-b).\\
+
+\vspace{0.5cm}
+\noindent 1 (a) \textipa{[tudok EJ pompa:S vits:Et]} `I know a fantastic joke.'\\
+\hspace*{0.18cm} (b) \textipa{[tudom 6mit tudok]} `I know what I know.'\\
+\vspace{0.5cm}
+
+
+\noindent 2 (a) \textipa{[EsEm EJ kiS kE\textltailn{}ErEt]} `I eat a little bread.'\\
+\hspace*{0.18cm} (b) \textipa{[EsEm 6 kE\textltailn{}ErEt]} `I eat the bread.'\\
+\vspace{0.5cm}
+
+\noindent However, the first person singular indefinite ({\sc 1sg.indef}) of the (-ik) verbs shows variance between the neutralising (-m) variant and the `regular' (-k) variant  (see (3)). I will refer to the (-m) variant as {\em marked} and to the (-k) variant as {\em unmarked}. This is because the (-m) variant {\em marks} the (-ik) stem in the {\sc 1sg.indef} and because it {\em neutralises} the contrast between the {\sc 1sg.indef} and the {\sc 1sg.def}.
+
+\vspace{0.5cm}
+\noindent 3 (a) \textipa{[it: l6kom pEStEn]} `I live here in Budapest.'\\
+\hspace*{0.18cm} (b) \textipa{[it: l6kok pEStEn]} `I live here in Budapest.'\\
+\vspace{0.5cm}
+
+\noindent Apart from a set of hypercorrect, lexicalised forms (such as \textipa{[k\o{}\textltailn{}\o{}rg\o{}m]} `I implore you', cf.\ \textipa{[k\o{}\textltailn{}\o{}r\o{}g]} `implore{\sc .intr.3sg.indef}'), the variation between marked (-m) and unmarked (-k) is restricted to the {\sc 1sg.indef} of the (-ik) verbs only.
+
+This variation is a socially salient linguistic marker \citep{kontra1997budapest}. The marked form is seen as the `correct'/prestige variant and shows both social stratification and style shifting.
+
+When we compare Classic Literary Hungarian with Educated Colloquial Hungarian, we witness the retreat of the (-ik) conjugation paradigm, which is effectively restricted to {\sc 3sg.indef} and {\sc 1sg.indef} in the latter. This, coupled with the social salience of variance in the {\sc 1sg}, could indicate that the (-ik) paradigm is gradually disappearing (even if the (-ik) ending of the {\sc 3sg.indef} remains stable). 
+
+This is reminiscent of the process of {\em morphological levelling}, in which verbs migrate from the minority category (the (-ik) class) to the majority category (the regular (-$\emptyset{}$) class) \citep{bybee1985morphology}. Levelling does not necessarily mean the eventual total disappearance of the minority class, as models exist of stable trade-offs between minority and majority categories in language \citep{cuskley2014internal}.
+
+Most accounts of morphological levelling make one core assumption on the structure of the mental lexicon, the repository of words and constructions stored by the individual \citep{goldberg1995constructions}. This assumption is that the mental lexicon is rich in detail, similar to broader, non-domain-specific cognitive category systems \citep{racz2015morphological,goldinger1997words,nosofsky1988similarity}. As a consequence, words are organised according to similarity and that frequency or predictability of use affects the strength of the individual representations.
+
+A rich-lexicon account of morphological levelling, then, rests on the principles of {\em frequency} and {\em prototypicality}. Here, both frequency and prototypicality are broader characteristics of cognitive category organisation that are applicable to the organisation of the human mental lexicon.
+
+Frequency has two aspects. First, word types with higher {\em token frequency} are more prone to morphological suppletion and tend to resist replacement and morphological levelling \citep{pagel2007frequency,albright2003rules}. This can be easily seen in the case of the {\em copula}, which is one of the most frequent verbs and which shows rampant irregularity in almost every language. Second, word categories with higher {\em type frequency} tend to be more productive and to expand over time \citep{baayen1993frequency}. Within morphologically complex forms, the relative frequency of the constituent parts has a huge effect on how the form is processed \citep{hay2001lexical}. In a morphological levelling process, we expect more frequent types to resist levelling more.
+
+Prototypicality has many working definitions, but it essentially relates to the {\em overall similarity} of a form to a given category \citep{gergely1994lexical,nosofsky1988similarity}. A form is said to be prototypical if it is very close to the centre of the category. We can quantify this distance in various ways. In terms of linguistic categories, prototypicality relates to the extent to which a given word form is {\em similar} to other forms in the same category. In a morphological levelling process, we expect word types that have higher token frequency and that are closer to the centre of the minority category to be more entrenched in the category and in the lexicon and, as a consequence, to resist levelling more.
+
+In the light of all this, we have to answer the following questions. Is variance in the {\sc 1sg.indef} of the (-ik) class an instance of morphological levelling? If it is, how are the above principles manifest in this variation? Do we expect the (-ik) class to be completely levelled in with the regular class? How does social salience affect this process? In order to answer these questions, we first need to specify how the above, general, aspects of lexical organisation and morphological levelling apply to (-ik) verbs.
+
+First, we ought to note that levelling should not be confined to variation in the {\sc 1sg.indef}. We would also expect verbs to lose the (-ik) ending in the {\sc 3sg.indef}. This is complicated by two facts. First, a large number of (-$\emptyset{}$)/(-ik) pairs are related but distinct in meaning (as in the above \textipa{[t\o{}r]}/\textipa{[t\o{}rik]} example). This semantic distinction can serve to maintain a formal distinction.
+
+Second, a number of (-ik) verbs would be illicit unsuffixed free forms in Hungarian in the {\sc 3sg.indef} without the (-ik) suffix: \textipa{[\textltailn{}ugsik]}/\textipa{[*\textltailn{}ugs]} `calm-{\sc intr.3sg.indef}'. (Compare with \textipa{[ra:g-s]} `chew{\sc -2sg.indef}'.) I revisit these issues in Section \ref{discussion}.
+
+Focussing on forms and the {\sc 1sg.indef}, we arrive at the following prediction:
+
+\vspace{0.5cm}
+\noindent (i) Verb forms that are attested with both (-ik) and {\em -$\emptyset$} forms will be more likely to use the {\em unmarked} {\sc 1sg.indef}.
+\vspace{0.5cm}
+
+\noindent If we take a form that has (-ik) in the {\sc 3sg.indef}, we expect it to prefer the {\em marked} {\sc 1sg.indef} overall: \textipa{[Esik]} $\rightarrow$ \textipa{[EsEm]} `eat' {\sc 3sg} / {\sc 1sg.indef}, \textipa{[l6kik]} $\rightarrow$ \textipa{[l6kom]} `stay' {\sc 3sg} / {\sc 1sg.indef}. Of course we expect to find unmarked forms as well, such as \textipa{[EsEk]}, \textipa{[l6kok]}. 
+
+If the verb has no (-ik) in the {\sc 3sg.indef}, we expect the absence of a marked {\sc 1sg.indef}: \textipa{[Se:ta:l]} $\not\to$ \textipa{[*Se:ta:lom]} `walk' {\sc 3sg} / {\sc 1sg.indef}. If a verb is attested with both the (-ik) and the (-$\emptyset{}$) suffix, we expect it to be more likely to occur with the {\em unmarked} form in the {\sc 1sg.indef}. (\textipa{[bujdoS]}/\textipa{[bujdoSik]} `keep on hiding' $\rightarrow$ \textipa{[bujdoSok]}). This is because these verbs are lexically less prototypical members of the (-ik) class.
+
+Pairs of closely related, but semantically distinct verbs would confound this analysis. However, there are no such pairs in the data (such as \textipa{[t\o{}r]} / \textipa{[t\o{}rik]}).
+
+Membership in both the regular and the (-ik) class should also affect prototypicality for {\em suffixes}. As we will see, many of the (-ik) verbs end in productive derivational suffixes, such as {\em deadjectival} \textipa{(-odik)}/\textipa{(-Edik)}/\textipa{(-\o{}dik)} or {\em denominal} \textipa{(-zik)}. We expect that if a suffix is mostly attested with regular verbs versus {\em ik verbs}, this should manifest in a preference for the {\em unmarked} {\sc 1sg.indef} (-ik) suffix -- and {\em vice versa}:
+
+\vspace{0.5cm}
+\noindent (ii.a) Derived verbs in the (-ik) class will be more likely to use the marked {\sc 1sg.indef} if the suffix itself has an overall preference for (-ik) in the {\sc 3sg.indef}. \\
+(ii.b) Derived verbs in the (-ik) class will be more likely to use the unmarked {\sc 1sg.indef} if the suffix itself has an overall preference for $\emptyset$ in the {\sc 3sg.indef}. 
+\vspace{0.5cm}
+
+\noindent In sum, the degree to which both the verb and its constituent parts are exclusive to the minority (-ik) class should have a strong effect on suffix preference in {\sc 1sg.indef}. The more the verb is closer to the centre of the (-ik) class, the more it should take the marked (-m) suffix that is characteristic of this class.
+
+The general behaviour of the suffixes -- whether they occur with (-ik) or (-$\emptyset{}$) across forms -- will be probably relevant. It can be offset by properties of the verb stem, mainly its token frequency.
+
+\vspace{0.5cm}
+\noindent (iii) More frequent verbs in the (-ik) class will be more likely to use the marked {\sc 1sg.indef}.
+\vspace{0.5cm}
+
+\noindent This is because a frequent form should, in models of the richly detailed mental lexicon, enjoy more autonomy and should be more resistant to levelling pressure. Given the inverse correlation between word length and word frequency \citep{zipf1935psycho}, we expect longer forms -- that are less frequent -- to be less prone to use the marked form.
+
+What other predictions can we draw from the interaction of frequency and prototypicality? Given that the marked {\sc 1sg.indef} neutralises {\em definiteness} marking in the {\sc 1sg}, we might expect (-ik) verbs that are {\em transitive} -- and therefore have attested definite forms -- to avoid using the marked indefinite in order to maintain expressivity:
+
+\vspace{0.5cm}
+\noindent (iv) If a verb in the (-ik) class has attested definite forms, it will avoid the marked indefinite form.
+\vspace{0.5cm}
+
+\noindent These numbered predictions follow if we regard variation in the {\sc 1sg.indef} of the (-ik) stems in Hungarian as a symptom of a morphological levelling process. They are straightforward to test on a representative sample of the ambient language \citep{hippisley2016cambridge}. I will use the Hungarian Webcorpus to explore the degree to which they define variation in the (-ik) class.
+
+\section{The distribution of (-ik) variation}
+
+Data were collected from the frequency dictionary of the Hungarian Webcorpus \citep{tron2006morphdb}. The dictionary is based on a version of the corpus that is morphologically analyzed \citep{tron2005hunmorph} and morphologically disambiguated on the inflection level \citep{halacsy2007hunpos}.
+
+% mekkora a webkorpusz
+
+The Webcorpus (specified as above) contains 3887 types and 2,549,651 tokens of (-ik) verbs. 3121 types have attested {\sc 1sg.indef} forms (164,627 tokens). I use an arbitrary cutoff rate to include verb types that have at least {\em four} {\sc 1sg.indef} forms in total. These verb types all show variation in the {\sc 1sg.indef}: they have at least one (-m) (marked) and one (-k) (unmarked) variant.
+
+The size of this dataset is inflated by forms that are likely results of hypercorrect use. The author considers \textipa{[va:lom]} `transform{\sc -1sg.indef}' and \textipa{[Elva:lom]} `divorce{\sc -1sg.indef}' ungrammatical, but they are both attested in the webcorpus (with a token frequency of 3 and 1, respectively).
+
+My analysis of the data largely follows Janda, Nesset \& Baayen's (\citeyear{janda2010capturing}) study of variation in Russian. I use the R open-source statistical environment for data analysis \citep{R} and the graphics package {\sc ggplot} for visualisation \citep{ggplot}. For each verb stem, I calculate the {\em odds ratio} of the marked and the unmarked {\sc 1sg.indef} form. In order to make it easier to visualise, analyse, and interpret the data, I take the logarithm of the odds. 
+
+For instance, the verb \textipa{[bulizik]} `party{\sc -3sg}' has \Sexpr{d[d$lemma=='bulizik',]$freq_m+d[d$lemma=='bulizik',]$freq_um} attested {\sc 1sg.indef} forms in the data, out of which \Sexpr{d[d$lemma=='bulizik',]$freq_m} are marked and \Sexpr{d[d$lemma=='bulizik',]$freq_um} are unmarked (\textipa{[bulizom]}/\textipa{[bulizok]}). The odds ratio of marked/unmarked for this verb is \Sexpr{round(d[d$lemma=='bulizik',]$odds_m,2)}. The log odds is \Sexpr{round(d[d$lemma=='bulizik',]$log_odds_m,2)}.
+
+\begin{figure}[htbp]
+\begin{center}
+<<distplot, echo=F, fig=T, width=4, height=2.5>>=
+right_line <- mean(d$log_odds_m) + 2.5 * mad(d$log_odds_m)
+left_line <- mean(d$log_odds_m) - 2.5 * mad(d$log_odds_m)
+ggplot(d, aes(log_odds_m)) + geom_density() + geom_vline(xintercept=left_line, lty = 2) + geom_vline(xintercept=right_line, lty = 2) + xlab('log odds of marked/unmarked')
+outlier_count <- d %>% filter(outlier==T) %>% select(lemma) %>% nrow
+@
+\caption{Density plot of the distribution of the variance across the {\sc 1sg.indef} of the (-ik) verbs}
+\label{densityplot}
+\end{center}
+\end{figure}
+
+The distribution of the log odds for all verbs in the dataset can be seen in Figure \ref{densityplot}. The mean of the distribution is \Sexpr{round(mean(d$log_odds_m),2)}. We can see that the distribution is swerved towards the right -- the positive values on the x axis indicate that, overall, the marked forms of the {\sc 1sg.indef} are more frequent than the unmarked ones. (In total, the dataset contains \Sexpr{sum(d$freq_m)} marked forms and \Sexpr{sum(d$freq_um)} unmarked forms.) This is in line with the descriptive assumption that (-ik) verbs prefer (-m) in the {\sc 1sg.indef}. The preference is also at least partly due to the written domain that the corpus is sampled from. The dashed lines indicate 2.5 median absolute deviations from the mean. \Sexpr{outlier_count} verb types fall outside these cutoffs. 
+
+\section{Operationalising our predictors \label{operationalising}}
+
+We now revisit the predictions of Section 1, repeated below.
+
+\begin{enumerate}[i]
+\item Verb forms that are attested with both (-ik) and $\emptyset$ forms will be more likely to use the {\em unmarked} {\sc 1sg.indef}.
+\item
+\begin{enumerate}
+\item Derived verbs in the (-ik) class will be more likely to use the marked {\sc 1sg.indef} if the suffix itself has an overall preference for (-ik) in the {\sc 3sg.indef}. \\
+\item Derived verbs in the (-ik) class will be more likely to use the unmarked {\sc 1sg.indef} if the suffix itself has an overall preference for $\emptyset$ in the {\sc 3sg.indef}. 
+\end{enumerate}
+\item More frequent verbs in the (-ik) class will be more likely to use the marked {\sc 1sg.indef}.
+\item If a verb in the (-ik) class has attested definite forms, it will avoid the marked indefinite form.
+\end{enumerate}
+
+How can we test for these predictions? Given the fuzzyness of existing semantic criteria on argument structure, I opt for a form-based approach, categorising verbs according to overlap in the shape of the stem. 
+
+For (i), I label the (-ik) verbs that are also attested without (-ik) in the {\sc 3sg.indef} in the Webcorpus: \Sexpr{nrow(d[d$verb_stem_varies==T,])} out of \Sexpr{nrow(d)} verbs in the dataset. One example is \textipa{[l6vi:rozik]} `manoeuvre{\sc -3sg.indef}', also attested as \textipa{[l6vi:roz]}. I operationalise the effect of these forms not by their frequency in the webcorpus, but rather by whether they are present or absent.
+
+For (ii), I focus on the suffix class defined as {\em medial derivational suffixes} by \cite{eabaffy1978medial}, viz.\ \textipa{(-odik)}, \textipa{(-o:dik)}, \textipa{(-Edik)}, \textipa{(-\o{}dik)}, \textipa{(-\o{}:dik)}, as well as \textipa{(-doklik)}, \textipa{(-dEklik)}, \textipa{(-d\o{}klik)}, \textipa{(-l(ik))}, \textipa{(-ll(ik))}. My inspection of the \Sexpr{nrow(d)} variable (-ik) stems reveals a third frequent derivational suffix, the {\em denominal} (-zik).
+
+I group these variants into three classes, fully productive (-Odik) (\textipa{[o/o:/\o{}/\o{}:dik]}) more lexicalised (-lik), as well as (-zik). I mark membership in these three classes for all verbs in my dataset. The single criterion of membership is formal similarity -- the {\sc 3sg.indef} of the verb has to end in (-Odik), (-lik), or (-zik).
+
+For each suffix (the term {\em ending} might be more accurate, given the primacy of formal similarity in defining these classes), I count the number of {\em types} in the Hungarian Webcorpus, {\em with or without -ik}: \textipa{(-od)}, \textipa{(-o:d)}, \textipa{(-\o{}d)}, \textipa{(-\o{}:d)} versus \textipa{(-odik)}, \textipa{(-o:dik)}, \textipa{(-\o{}dik)}, \textipa{(-\o{}:dik)}, \textipa{(-\o{}:dik)}; (-l versus (-lik), and (-z) versus (-zik). 
+
+I do not consider all possible variants.
+
+First, {\em deadjectival} (-Odik) has a fifth variant, front unrounded \textipa{(-Edik)}. This latter one, {\em without -ik}, overlaps with a separate verbal ending, (-Ad). As we will see, this is a relatively frequent form, so that \textipa{(-Edik)} is an exception to the overall pattern of (-Odik). We ought to also note that (-Odik) and (-zik) are fully productive, while (-lik) is not. This is excluded.
+
+Second, I also exclude counts of (-ll) and (-llik). The former is a very rare verb ending, and so should not be compared to the latter. In order to control for this, only counts of (-l) and (-lik) are included. The summary can be seen in Table \ref{suffixtable} below.
+
+
+% webcorpus queries
+% overall: analysis = V
+% .*[oeöóő]d$ 
+% .*[oeöóő]dik$
+% ".*[^l]l$"
+% [^l]lik$
+% .*z$
+% .*zik$
+
+\begin{table}[htp]
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+Suffix & \em -ik & (-$\emptyset{}$)\\
+\midrule
+\em -ed(ik) & 508 & 180 \\
+\em -Od(ik) & 1853 & 18\\
+\em -l(ik) & 266 & 3684 \\
+\em -z(ik) & 1131 & 1048\\
+\bottomrule
+\end{tabular}
+\end{center}
+\caption{Number of derived types with and without (-ik) in the Hungarian Webcorpus}
+\label{suffixtable}
+\end{table}
+
+Subsuming \textipa{(-odik)}, \textipa{(-o:dik)}, \textipa{(-\o{}dik)}, \textipa{(-\o{}:dik)} under the shorthand (-Odik) is idiosyncratic to this paper, as capital letter notations in morphophonology usually refer to allomorphs of the same morpheme. Short- and long-vowel variants of (-Odik) can also be analysed as separate suffixes (see \citealt{kiefer2000strukturalis}).
+
+Given that pairs of stems with (-ik) and (-$\emptyset{}$) (like \textipa{[t\o{}r]}/\textipa{[t\o{}rik]}) exist, a speaker can re-analyse -ed(ik), -Od(ik), -l(ik), and -z(ik) as pairs. 
+
+That is, one might assume that  \textipa{[jElEz} `signify{\sc -3sg.indef}' and \textipa{[ut6zik]} `travel{\sc -3sg.indef}' share a verbal derivational suffix, except that the latter is also an (-ik) stem. Then, a speaker has strong evidence that (-Od)/(-Odik) is a more typical (-ik) suffix, whereas [-l]/[-lik] is a more typical (-$\emptyset{}$) suffix. The presumed suffix (-z)/(-zik) has strong support for existing both as an (-ik) and a (-$\emptyset{}$) suffix.
+
+Out of the \Sexpr{nrow(d)} verbs, \Sexpr{nrow(d[d$verb_lik==T,])} end in (-lik), \Sexpr{nrow(d[d$verb_zik==T,])} end in (-zik), and \Sexpr{nrow(d[d$verb_odik==T,])} end in (-Odik).
+
+For (iii), I used the logged lemma frequency of the verb as a proxy of the verb's overall frequency/predictability. Lemma frequency is the summed frequency of all attested forms of the verb in the corpus.
+
+For (iv), I labelled the (-ik) verbs that have attested {\sc 1sg.def} forms as well. That is, a verb is {\em transitive} if it has a {\em transitive} form in the corpus.
+
+This operationalisation allows me to test for the prototypicality- and frequency-based predictions of treating variation in the (-ik) {\sc 1sg.indef} as a case of morphological levelling. I almost entirely discarded semantics in favour of formal similarity and frequency of occurrence in the webcorpus. I see this as a feature, rather than a bug; definitions based on form are less ambiguous, and whether a verb has an {\em attested} transitive form is a clearer criterion of transitivity than whether the verb {\em could} have a semantic basis to be transitive.
+
+\section{The structure of (-ik) variation}
+
+I fit a mixed-effects logistic regression model on the dataset using the {\sc lme4} package in R \citep{lme4}. The model predicts the log odds ratio of the marked (-m) over the unmarked (-k) variant of the {\sc 1sg.indef} as a function of various characteristics of the verb form. The counts of the marked and the unmarked forms in the dataset are not independent -- they are grouped under verb forms. (Each verb form has {\em n} marked and {\em m} unmarked realisations.) To account for this lack of independence, the model also contains a random intercept for verb form.
+
+The model's predictors are based on the indicators of morphological levelling outlined in the previous section. These are (a) the log lemma frequency of the verb form, (b) whether the verb has an attested {\sc 3sg.indef} variant {\em without} (-ik), (c) whether the verb has an attested {\em transitive} form, (d) whether the verb ends in (-Odik) -- ignoring \textipa{[Edik]} -- , or (e) (-lik), or (f) (-zik). The summary of the fixed effects can be seen in Table \ref{modelresults}. 
+
+When we look at the fixed effects, the estimate informs us of the relationship between predictor and marked/unmarked {\sc 1sg.indef} variation across forms in the sample. The standard error of the estimate is a measure of accuracy. If we kept drawing samples from, say, online Hungarian use, the error gives us a sense of the variation of the estimate across these samples. If the estimate moves around a lot in repeated samples, it is not very informative of the real relationship in the population (e.g.\ variation in online Hungarian). Using a set of assumptions on the sampling distribution, we could calculate a {\em p} value to express the likelihood of the null hypothesis being true for each predictor, given the sample.
+
+Since this analysis is highly exploratory and since, overall, there is no meaningful null hypothesis to reject, I will report the estimates and the standard errors for each predictor, but will not provide a {\em p} value. Instead, I go through the predictors one by one below and plot the predicted values for each predictor below using the {\sc effects} package in R \citep{fox2009effect}.
+
+
+<<glm, echo=F>>=
+# fit1 <- glmer(cbind(freq_m,freq_um) ~ c.log_freq_lemma + verb_transitive + verb_odik + verb_lik + verb_zik + verb_stem_varies + syllable_count + (1|lemma), data = d, family="binomial"(link=logit), control=glmerControl(optimizer="bobyqa"))
+
+d$log_verb_lemma_frequency <- d$c.log_freq_lemma
+d$verb_is_transitive <- d$verb_transitive
+d$verb_has_varying_ik <- d$verb_stem_varies
+d$odik_suffix <- d$verb_odik
+d$lik_suffix <- d$verb_lik
+d$zik_suffix <- d$verb_zik
+d$word_length <- d$syllable_count
+
+fit1 <- glmer(cbind(freq_m,freq_um) ~ log_verb_lemma_frequency + verb_is_transitive + verb_has_varying_ik + odik_suffix + lik_suffix + zik_suffix + word_length + (1|lemma), data = d, family="binomial"(link=logit), control=glmerControl(optimizer="bobyqa"))
+
+# plot(fit1)
+# summary(fit1)
+# str(effect('c.log_freq_lemma', fit1))
+@
+
+<<modeltable, echo=F, results=tex>>=
+print(xtable(summary(fit1)$coef[,-4],caption = 'Estimated effects and standard errors, logistic model', label = 'modelresults'))
+@
+
+\paragraph{Verb frequency}
+
+The predicted effect of verb frequency can be seen in Figure \ref{effektplot1}. The positive correlation between frequency and preference for the marked form is very clear -- while the marked form is preferred overall, this is especially true for frequent verb forms. This is congruent with the levelling hypothesis, since it shows that more frequent forms, those with a stronger lexical representation, are more resistant to adopting the majority variant (which is unmarked (-k) for {\em all} verbs).
+
+\begin{figure}[htbp]
+\begin{center}
+<<effektplot1, echo=F, fig=T, width=3, height=3>>=
+plot(effect('log_verb_lemma_frequency', fit1, type = 'response'), xlab='logged verb lemma frequency', ylab='probability of marked form', main='', ylim = c(-2.2,2.2))
+@
+\caption{Model predictions: the effect of lemma frequency on marked/unmarked preference}
+\label{effektplot1}
+\end{center}
+\end{figure}
+
+Longer verbs {\em also} prefer the marked form (Figure \ref{effektplot1b}). This remains true even though longer verbs tend to be less frequent. I would argue that this is a stylistic aspect of this variation. Longer verbs tend to be more formal (\textipa{[Ele:gEdEtlEnkEdik]} `dissent{\sc -3sg.indef}', \textipa{[Elbizo\textltailn{}t6l6nodik]} `unsettle{\sc -3sg.indef}'), which, in turn, leads to a more prevalent use of the formal, marked suffix.
+
+\begin{figure}[htbp]
+\begin{center}
+<<effektplot1, echo=F, fig=T, width=3, height=3>>=
+plot(effect('word_length', fit1), xlab='word length (syllable count)', ylab='probability of marked form', main='', ylim = c(-2.2,2.2))
+@
+\caption{Model predictions: the effect of word length on marked/unmarked preference}
+\label{effektplot1b}
+\end{center}
+\end{figure}
+
+
+\paragraph{Verb prototypicality}
+
+Those (-ik) verbs that have a (-$\emptyset{}$) variant in the {\sc 3sg.indef} are far less likely to select the marked variant (Figure \ref{effektplot2}). This is, again, in line with the levelling hypothesis. If a verb shows variation in the -- more stable -- {\sc 3sg.indef}, it is little suprise that it will be more prone to go for the majority unmarked pattern in the {\sc 1sg.indef}.
+
+\begin{figure}[htbp]
+\begin{center}
+<<effektplot2, echo=F, fig=T, width=3, height=3>>=
+plot(effect('verb_has_varying_ik', fit1), xlab = '3sg form varies', ylab='probability of marked form', main='', ylim = c(-2.2,2.2))
+@
+\caption{Model predictions: the effect of 3sg variance}
+\label{effektplot2}
+\end{center}
+\end{figure}
+
+Interestingly, whether a verb has an attested transitive form has little effect on its preference in the {\sc 1sg.indef} (Figure \ref{effektplot3}). This suggests that the system is not overly concerned with maintaining the {\em definiteness} distinction, at least not in the (-ik) class.
+
+\begin{figure}[htbp]
+\begin{center}
+<<effektplot3, echo=F, fig=T, width=3, height=3>>=
+plot(effect('verb_is_transitive', fit1), xlab='verb has transitive form', ylab='probability of marked form', main='', ylim = c(-2.2,2.2))
+@
+\caption{Model predictions: the effect of verb transitivity}
+\label{effektplot3}
+\end{center}
+\end{figure}
+
+As seen in Figure \ref{effektplot2}, whether the verb is more centrally in the (-ik) class seems to matter. What about derivational suffixes? Recall that the distributions of our three derivational suffixes in the {\sc 3sg.indef} provide different types of evidence on the degree `{\em ik-ness}' of the verb form. Most (-Od)/(-Odik) forms are in the (-ik) class. Most (-l)/(-lik) forms are in the (-$\emptyset{}$) class. There is no such clear asymmetry for the (-z)/(-zik) forms. 
+
+The behaviour of the {\sc 1sg.indef} of the derived forms follows precisely this pattern. For (-Odik) (Figure \ref{effektplot4}), where the ending is strongly suggestive of an (-ik) stem, we find a preference for the marked {\sc 1sg.indef}. For (-lik), where the ending is strongly suggestive of a {\em regular} stem, we find the exact opposite (Figure \ref{effektplot5}). For \textipa{(-zik)}, where the ending is not particularly informative of the verb class, we find no strong difference (Figure \ref{effektplot6}).
+
+We should note that (-Odik), in particular, is a robust indicator of an (-ik) stem. This means that it is particularly easy to associate it with the `correct' (socially accepted) marked suffix, even without invoking the stem itself. If a {\sc 1sg.indef} ends in e.g.\ [-odo.], the speaker will have a strong clue to conclude it to (-odom). Note, however, that (\textipa{-Edik}) constitutes an exception to this pattern. If we refit the model and include the \textipa{[E]}-variant in (-Odik), the overall effect of this predictor is no longer robust. This makes sense if we consider the overlap between (-Odik) and (-Ad), discussed in Section \ref{operationalising}. Another thing to note is that the strength of (-Odik) as a predictor is weaker because the suffix itself is not very frequent in the sample.
+
+\begin{figure}[htbp]
+\begin{center}
+<<effektplot4, echo=F, fig=T, width=3, height=3>>=
+plot(effect('odik_suffix', fit1), xlab='verb ends in -Odik', ylab='probability of marked form', main='', ylim = c(-2.2,2.2))
+@
+\caption{Model predictions: the effect of -Odik}
+\label{effektplot4}
+\end{center}
+\end{figure}
+
+\begin{figure}[htbp]
+\begin{center}
+<<effektplot5, echo=F, fig=T, width=3, height=3>>=
+plot(effect('lik_suffix', fit1), xlab='verb ends in -lik', ylab='probability of marked form', main='', ylim = c(-2.2,2.2))
+@
+\caption{Model predictions: the effect of -lik}
+\label{effektplot5}
+\end{center}
+\end{figure}
+
+\begin{figure}[htbp]
+\begin{center}
+<<effektplot6, echo=F, fig=T, width=3, height=3>>=
+plot(effect('zik_suffix', fit1), xlab='verb ends in -zik', ylab='probability of marked form', main='', ylim = c(-2.2,2.2))
+@
+\caption{Model predictions: the effect of -zik}
+\label{effektplot6}
+\end{center}
+\end{figure}
+
+These results are strongly indicative of a morphological levelling scenario in which verbs gradually move away from the (-ik) class towards the majority class. More frequent verbs, verbs that only have (-ik) forms in the {\sc 3sg.indef}, and verbs that have the characteristic (-Odik) suffix, are more resistant to levelling. Verbs that have the characteristically {\em not} (-ik) suffix (-lik) are {\em less} likely to resist levelling. The marked {\sc 1sg.indef} suffix of the (-ik) class neutralises the definiteness contrast, but this does not seem to be a relevant factor -- (-ik) verbs that have transitive forms do not avoid the marked suffix to a larger degree.
+
+\section{Further sources of (-ik) variation}
+
+It is clear that the traits above are not the only ones responsible for variation in the {\sc 1sg.indef} of (-ik) stems. The model residuals are indicative of further sources of variation.
+
+The regression model predicts the log odds ratio of the marked and the unmarked variants of the {\sc 1sg.indef}. Above, we discussed the estimated effect of our predictors -- lemma frequency, suffix type, and so forth. What is also interesting is residual variation that is {\em not} explained by the regression model. Verb forms with high residual values are forms that the model `missed', forms that are not behaving in a certain way because of the traits I used as predictors.
+
+While I do not want to discuss model residuals in great detail, I note two types of outlier forms (forms that have a strong preference for the marked/unmarked suffix, not explained by the regression model). 
+
+First, short, frequent, intransitive verbs like \textipa{[va:lik]} `transform-{\sc 3sg.indef}' or \textipa{[ty:nik]} `appear-{\sc 3sg.indef}' have a strong preference for the {\em unmarked} form. 
+
+<<szikdikcount, echo=F>>=
+d$szik <- str_detect(d$lemma, "szik$")
+d$dik <- str_detect(d$lemma, "dik$")
+
+# d %>% select(odds_m,szik,dik) %>% group_by(szik,dik) %>% summarise(mean_odds_m = mean(odds_m)) %>% xtable
+@
+
+Second, verbs that show variation between (-d) and (-s) in their conjugation show marked preferences. The (-d)/(-s) stems are a specific subclass of (-ik) verbs. It is possible for (-d)/(-s) forms to co-exist in one paradigm slot, as in \textipa{[vErEkEdik]}/\textipa{[vErEksik]} `fight{\sc -3sg.indef}' or \textipa{[mElEgEdik]}/\textipa{[mElEgsik]} `get warm{\sc -3sg.indef}'. For other verbs, the (-d)/(-s) forms co-exist within the paradigm, but have a set distribution, as in \textipa{[fEkydnE]} `lie{\sc -3sg.cond.indef}' / \textipa{[fEksik]} `lie{\sc -3sg.indef}'. This is because the conditional suffix (-AnA) goes with the (-d) variant.
+
+Here, the relevant aspect of this variation is that (-sik) forms overwhelmingly prefer the {\em marked} suffix in the {\sc 1sg.indef}, while (-dik) forms prefer the {\em unmarked} suffix. This despite the fact that (-Odik), overall, shows a preference for the marked suffix. This can be seen in Table \ref{szikdiktabla}, which reports the mean odds of the marked and the unmarked form for (i) all forms, (ii) forms ending in (-dik), (iii) forms ending in (-sik).
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{ll}
+  \hline
+ suffix & mean odds of marked / unmarked \\ 
+  \hline
+  (-dik) & 6.64 \\ 
+  (-sik) & 27.11 \\ 
+  all forms & 8.97 \\
+   \hline
+\end{tabular}
+\caption{Preferences of (-dik) and (-sik) in the data}
+\label{szikdiktabla}
+\end{table}
+
+<<outliers, echo=F>>=
+# d$pred <- predict(fit1, type = 'response')
+# cor.test(d$pred,d$log_odds_m) # wow
+# r.squaredGLMM(fit1) # wow
+d$resid <- residuals(fit1)
+
+# edik-szik!!! letelepedek/letelepszem!! -szem super -m, valom, duplazom super -k.
+@
+
+Variation in the {\sc 1sg.indef} has a non-linguistic aspect affecting its distribution in the corpus -- it is socially salient. This can explain why the marked suffix is overrepresented in general. The corpus consists of written language (albeit written online), written language is more formal, and the marked suffix is more socially accepted, especially in formal registers. This also explains why very long, formal verbs prefer the marked suffix.
+
+\section{Discussion \label{discussion}}
+
+I have proposed that variation in the {\sc 1sg.indef} of the Hungarian (-ik) stems can be modelled as a case of morphological levelling, wherein verbs in the less populous (-ik) class are migrating to the larger, more regular (-$\emptyset{}$) class. I proposed a set of criteria to judge the validity of the morphological levelling scenario; frequent verbs, as well as more prototypically (-ik) stems and more prototypically (-ik) derivational suffixes should resist change. I used a dataset of verbs in the Hungarian Webcorpus to assess these criteria. Results support a morphological levelling scenario. My model does not cover all mechanisms of levelling -- as evidenced by the existence of outlier forms such as \textipa{[va:lik]} `transform{\sc -3sg.indef}' -- and it cannot capture the social aspects of (-ik) variation. It still remains the first large-scale corpus-based quantitative study of variation in the {\sc 1sg.indef} of the (-ik) stems, one that provides statistical evidence for an ongoing levelling process.
+
+The levelling scenario has an apparent weakness. If we are witnessing morphological levelling, why has the (-ik) class not disappeared entirely? First, stable systems of majority and minority morphological classes exist, the best known one being the English past tense system \citep{cuskley2014internal}. While the irregular class of English verbs has been shrinking since Old English, it has also been taking in new forms, and the irregular use of some very frequent forms has been stable through the history of the language. The Hungarian (-ik) class is much larger than the English irregular class. It is large enough to recruit new members in the {\sc 3sg.indef}, which would then eventually also take up the remaining defining characteristics of the paradigm, most notably the marked {\sc 1sg.indef} suffix. Second, Hungarian verbs constitute a lexically {\em closed} class, so that new forms must be formed with a derivational suffix, many of which, as we have seen, prefer (-ik) (e.g.\ \textipa{[hEk:ErkEdik]} `hack systems{\sc -3sg.indef} $\sim{}$ \textipa{[hEk:ErkEdEm]} {\sc 1sg.indef}, \textipa{[intErnEtEzik]} `browse the Internet{\sc -3sg.indef}) $\sim{}$ \textipa{[intErnEtEzEm]} {\sc 1sg.indef}). Native speaker judgements on such forms will likely vary, but that is beyond the scope of this short paper.
+
+Third, a major reason for the existence of (-ik) verbs, however, is morphophonological. Many of these verbs contain consonant clusters that are illegal at word boundaries in Hungarian, meaning that, without the (-ik) suffix, the stems are not viable. This is evidenced in various vowel alternation processes which result in a consonant cluster in certain paradigm slots and an intervening vowel in others. More notable is the apparent failure of these processes to operate in certain cases -- the rampant defectivity of the Hungarian (-ik) stems in the imperative \citep{lukacs2010defective}, which lack all forms with consonant-initial suffixes. Overall, of course, the phonotactic requirement does not explain the persistence of (-ik) for verbs that would have a licit phonotactic configuration without the suffix, like \textipa{[va:lik]} `transform{\sc -3sg.indef}' -- hypothetical \textipa{[va:l]} is well-formed.
+
+The conflicting forces of Hungarian morphophonology will warrant the survival of the {\sc 3sg.indef} (-ik). In turn, the strong social stigma associated with the only other part of the paradigm where the (-ik) class is consistently marked, the {\sc 1sg.indef}, will push forms toward the marked (-m) suffix. This is further reinforced by the fact that (-Odik) is an excellent marker of the (-ik) class in the {\sc 1sg.indef}, allowing speakers to keep track of suffix preference. The gradual levelling of the {\sc 1sg.indef} of Hungarian verbal morphology is kept at bay by morphophonological and paradigm effects on the one hand, and social salience on the other.
+
+\bibliographystyle{unified}
+\bibliography{hungarian-verbal-1sgindef}
+
+\end{document}
