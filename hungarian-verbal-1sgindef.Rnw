@@ -18,7 +18,7 @@
 \setkeys{Gin}{width=0.55\textwidth}
 
 \title{Frequency and prototypicality determine variation in the Hungarian verbal {\sc 1sg.indef}}
-\author{P\'eter R\'acz \\ \small Department of Anthropology and Archaeology, University of Bristol}
+\author{P\'eter R\'acz \\ \small Cognitive Development Center, Department of Cognitive Science, Central European University}
 \date{}
 \maketitle
 
@@ -27,13 +27,13 @@ I provide a synchronic account of the variation between the {\em marked} and {\e
 \end{abstract}
 
 <<header,echo=FALSE>>=
-library(dplyr)
-library(stringr)
+library(tidyverse)
+library(broom)
 library(reshape2)
 library(xtable)
 library(lme4)
 library(ggplot2)
-library(effects)
+library(sjPlot)
 library(MuMIn)
 
 setwd("/Users/pracz/Work/Bristol/ikes-igek-repo/")
@@ -67,9 +67,9 @@ In any case, the Classic Literary Hungarian distinction between regular and (-ik
 &\multicolumn{3}{c}{regular verb} & \multicolumn{3}{c}{(-ik) verb}\\
 &\sc 1sg.indef  &\sc 2sg.indef &\sc 3sg.indef &\sc 1sg.indef & \sc 2sg.indef & \sc 3sg.indef \\
 \midrule
-{\sc ind} & \textipa{ fe:syl\o{}k } & \textipa{  fe:syls } & \textipa{ fe:syl } & \colorbox{gray}{ \textipa{ fe:sylk\o{}d\o{}m} }& \textipa{ fe:sylk\o{}d\o{}l } & \colorbox{gray}{\textipa{ fe:sylk\o{}dik} }\\
-{\sc imp} & \textipa{ fe:syljEk } & \textipa{  fe:sylj } & \textipa{ fe:sylj\o{}n } & \textipa{ fe:sylk\o{}djEm } & \textipa{ fe:sylk\o{}djel } & \textipa{ fe:sylk\o{}djek }\\
-{\sc cond} & \textipa{  fe:sylnek } & \textipa{ fe:sylnel } & \textipa{ fe:sylnE } & \textipa{ fe:sylk\o{}dnem } & \textipa{ fe:sylk\o{}dnel } & \textipa{ fe:sylk\o{}dnek }\\
+{\sc ind} & \textipa{fe:syl\o{}k } & \textipa{fe:syls } & \textipa{fe:syl } & \colorbox{gray}{\textipa{fe:sylk\o{}d\o{}m} }& \textipa{fe:sylk\o{}d\o{}l } & \colorbox{gray}{\textipa{fe:sylk\o{}dik} }\\
+{\sc imp} & \textipa{fe:syljEk } & \textipa{fe:sylj } & \textipa{fe:sylj\o{}n } & \textipa{fe:sylk\o{}djEm } & \textipa{fe:sylk\o{}djel } & \textipa{fe:sylk\o{}djek }\\
+{\sc cond} & \textipa{fe:sylnek } & \textipa{fe:sylnel } & \textipa{fe:sylnE } & \textipa{fe:sylk\o{}dnem } & \textipa{fe:sylk\o{}dnel } & \textipa{fe:sylk\o{}dnek }\\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -266,11 +266,12 @@ The model's predictors are based on the indicators of morphological levelling ou
 
 When we look at the fixed effects, the estimate informs us of the relationship between predictor and marked/unmarked {\sc 1sg.indef} variation across forms in the sample. The standard error of the estimate is a measure of accuracy. If we kept drawing samples from, say, online Hungarian use, the error gives us a sense of the variation of the estimate across these samples. If the estimate moves around a lot in repeated samples, it is not very informative of the real relationship in the population (e.g.\ variation in online Hungarian). Using a set of assumptions on the sampling distribution, we could calculate a {\em p} value to express the likelihood of the null hypothesis being true for each predictor, given the sample.
 
-Since this analysis is highly exploratory and since, overall, there is no meaningful null hypothesis to reject, I will report the estimates and the standard errors for each predictor, but will not provide a {\em p} value. Instead, I go through the predictors one by one below and plot the predicted values for each predictor below using the {\sc effects} package in R \citep{fox2009effect}.
+Since this analysis is highly exploratory and since, overall, there is no meaningful null hypothesis to reject, I will report the estimates and the standard errors for each predictor, but will not provide a {\em p} value. Instead, the Wald 95\% confidence intervals are provided (see also Figure \ref{confintplot1}). If the intervals do not contain zero, we can be 95\% certain that the effect is non-zero.
+
+I go through the predictors one by one below and plot the predicted values for each predictor below using the {\sc sjPlot} package in R \citep{sjplot}.
 
 
 <<glm, echo=F>>=
-# fit1 <- glmer(cbind(freq_m,freq_um) ~ c.log_freq_lemma + verb_transitive + verb_odik + verb_lik + verb_zik + verb_stem_varies + syllable_count + (1|lemma), data = d, family="binomial"(link=logit), control=glmerControl(optimizer="bobyqa"))
 
 d$log_verb_lemma_frequency <- d$c.log_freq_lemma
 d$verb_is_transitive <- d$verb_transitive
@@ -282,14 +283,44 @@ d$word_length <- d$syllable_count
 
 fit1 <- glmer(cbind(freq_m,freq_um) ~ log_verb_lemma_frequency + verb_is_transitive + verb_has_varying_ik + odik_suffix + lik_suffix + zik_suffix + word_length + (1|lemma), data = d, family="binomial"(link=logit), control=glmerControl(optimizer="bobyqa"))
 
-# plot(fit1)
-# summary(fit1)
-# str(effect('c.log_freq_lemma', fit1))
+term.order = c('(Intercept)', 'log_verb_lemma_frequency', 'verb_is_transitiveTRUE', 'verb_has_varying_ikTRUE', 'odik_suffixTRUE', 'lik_suffixTRUE', 'zik_suffixTRUE', 'word_length') %>% rev
+
+confints = confint(fit1, method = 'Wald') %>% broom::tidy()
+confints = confints[-1,]
+names(confints) = c('term', '2.5%', '97.5%')
+
+t1 = broom::tidy(fit1)
+t1 = inner_join(t1, confints, by = 'term') %>% 
+  dplyr::select(-p.value,-group)
+
 @
 
 <<modeltable, echo=F, results=tex>>=
-print(xtable(summary(fit1)$coef[,-4],caption = 'Estimated effects and standard errors, logistic model', label = 'modelresults'))
+print(xtable(t1,caption = 'Estimated effects, standard errors, and Wald confidence intervals, logistic model', label = 'modelresults'))
 @
+
+\begin{figure}[htbp]
+\begin{center}
+<<confintfigure, echo=F, fig=T, width=6, height=4>>=
+t1 %>% 
+  mutate(
+      term = factor(term, levels = term.order)
+    ) %>% 
+    ggplot(aes(x = term, y = estimate)) +
+    geom_point() +
+    geom_linerange(aes(ymin =`2.5%`, ymax = `97.5%`)) +
+    coord_flip() +
+    theme_minimal() +
+    theme(
+      panel.grid.major.y = element_blank(),
+      panel.grid.minor.y = element_blank()
+      ) +
+    geom_hline(yintercept = 0, lty = 2)
+@
+\caption{Estimated Wald 95\% confidence intervals, logistic model}
+\label{confintplot1}
+\end{center}
+\end{figure}
 
 \paragraph{Verb frequency}
 
@@ -298,19 +329,25 @@ The predicted effect of verb frequency can be seen in Figure \ref{effektplot1}. 
 \begin{figure}[htbp]
 \begin{center}
 <<effektplot1, echo=F, fig=T, width=3, height=3>>=
-plot(effect('log_verb_lemma_frequency', fit1, type = 'response'), xlab='logged verb lemma frequency', ylab='probability of marked form', main='', ylim = c(-2.2,2.2))
+plot_model(fit1, type = 'pred', terms = 'log_verb_lemma_frequency') + 
+  labs(y = 'probability of marked form', x = 'log lemma frequency') + 
+  ylim(0.25,1) +
+  ggtitle('')
 @
 \caption{Model predictions: the effect of lemma frequency on marked/unmarked preference}
 \label{effektplot1}
 \end{center}
 \end{figure}
 
-Longer verbs {\em also} prefer the marked form (Figure \ref{effektplot1b}). This remains true even though longer verbs tend to be less frequent. I would argue that this is a stylistic aspect of this variation. Longer verbs tend to be more formal (\textipa{[Ele:gEdEtlEnkEdik]} `dissent{\sc -3sg.indef}', \textipa{[Elbizo\textltailn{}t6l6nodik]} `unsettle{\sc -3sg.indef}'), which, in turn, leads to a more prevalent use of the formal, marked suffix.
+Longer verbs {\em also} prefer the marked form (Figure \ref{effektplot1b} -- note that syllable count was modelled as a continuouos variable to reduce model complexity). This remains true even though longer verbs tend to be less frequent. I would argue that this is a stylistic aspect of this variation. Longer verbs tend to be more formal (\textipa{[Ele:gEdEtlEnkEdik]} `dissent{\sc -3sg.indef}', \textipa{[Elbizo\textltailn{}t6l6nodik]} `unsettle{\sc -3sg.indef}'), which, in turn, leads to a more prevalent use of the formal, marked suffix.
 
 \begin{figure}[htbp]
 \begin{center}
 <<effektplot1, echo=F, fig=T, width=3, height=3>>=
-plot(effect('word_length', fit1), xlab='word length (syllable count)', ylab='probability of marked form', main='', ylim = c(-2.2,2.2))
+plot_model(fit1, type = 'pred', terms = 'word_length') + 
+  labs(y = 'probability of marked form', x = 'word length (syllable count)') + 
+  ylim(0.25,1) +
+  ggtitle('')
 @
 \caption{Model predictions: the effect of word length on marked/unmarked preference}
 \label{effektplot1b}
@@ -325,7 +362,14 @@ Those (-ik) verbs that have a (-$\emptyset{}$) variant in the {\sc 3sg.indef} ar
 \begin{figure}[htbp]
 \begin{center}
 <<effektplot2, echo=F, fig=T, width=3, height=3>>=
-plot(effect('verb_has_varying_ik', fit1), xlab = '3sg form varies', ylab='probability of marked form', main='', ylim = c(-2.2,2.2))
+plot_model(fit1, type = 'pred', terms = 'verb_has_varying_ik') + 
+  labs(y = 'probability of marked form', x = '3sg form varies') + 
+  ylim(0.25,1) + 
+  theme(
+    panel.grid.major.x = element_blank(), 
+    panel.grid.minor.x = element_blank()
+    ) +
+  ggtitle('')
 @
 \caption{Model predictions: the effect of 3sg variance}
 \label{effektplot2}
@@ -337,7 +381,14 @@ Interestingly, whether a verb has an attested transitive form has little effect 
 \begin{figure}[htbp]
 \begin{center}
 <<effektplot3, echo=F, fig=T, width=3, height=3>>=
-plot(effect('verb_is_transitive', fit1), xlab='verb has transitive form', ylab='probability of marked form', main='', ylim = c(-2.2,2.2))
+plot_model(fit1, type = 'pred', terms = 'verb_is_transitive') + 
+  labs(y = 'probability of marked form', x = 'verb has transitive form') + 
+  ylim(0.25,1) + 
+  theme(
+    panel.grid.major.x = element_blank(), 
+    panel.grid.minor.x = element_blank()
+    ) +
+  ggtitle('')
 @
 \caption{Model predictions: the effect of verb transitivity}
 \label{effektplot3}
@@ -353,7 +404,14 @@ We should note that (-Odik), in particular, is a robust indicator of an (-ik) st
 \begin{figure}[htbp]
 \begin{center}
 <<effektplot4, echo=F, fig=T, width=3, height=3>>=
-plot(effect('odik_suffix', fit1), xlab='verb ends in -Odik', ylab='probability of marked form', main='', ylim = c(-2.2,2.2))
+plot_model(fit1, type = 'pred', terms = 'odik_suffix') + 
+  labs(y = 'probability of marked form', x = 'verb ends in -Odik') + 
+  ylim(0.25,1) + 
+  theme(
+    panel.grid.major.x = element_blank(), 
+    panel.grid.minor.x = element_blank()
+    ) +
+  ggtitle('')
 @
 \caption{Model predictions: the effect of -Odik}
 \label{effektplot4}
@@ -363,7 +421,14 @@ plot(effect('odik_suffix', fit1), xlab='verb ends in -Odik', ylab='probability o
 \begin{figure}[htbp]
 \begin{center}
 <<effektplot5, echo=F, fig=T, width=3, height=3>>=
-plot(effect('lik_suffix', fit1), xlab='verb ends in -lik', ylab='probability of marked form', main='', ylim = c(-2.2,2.2))
+plot_model(fit1, type = 'pred', terms = 'lik_suffix') + 
+  labs(y = 'probability of marked form', x = 'verb ends in -lik') + 
+  ylim(0.25,1) + 
+  theme(
+    panel.grid.major.x = element_blank(), 
+    panel.grid.minor.x = element_blank()
+    ) +
+  ggtitle('')
 @
 \caption{Model predictions: the effect of -lik}
 \label{effektplot5}
@@ -373,7 +438,14 @@ plot(effect('lik_suffix', fit1), xlab='verb ends in -lik', ylab='probability of 
 \begin{figure}[htbp]
 \begin{center}
 <<effektplot6, echo=F, fig=T, width=3, height=3>>=
-plot(effect('zik_suffix', fit1), xlab='verb ends in -zik', ylab='probability of marked form', main='', ylim = c(-2.2,2.2))
+plot_model(fit1, type = 'pred', terms = 'zik_suffix') + 
+  labs(y = 'probability of marked form', x = 'verb ends in -zik') + 
+  ylim(0.25,1) + 
+  theme(
+    panel.grid.major.x = element_blank(), 
+    panel.grid.minor.x = element_blank()
+    ) +
+  ggtitle('')
 @
 \caption{Model predictions: the effect of -zik}
 \label{effektplot6}
